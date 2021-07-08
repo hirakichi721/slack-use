@@ -1,13 +1,5 @@
 #!/usr/bin/python3
 
-#
-# loop_getter.py
-# 2021.7.8
-# by Hirakichi
-#   For my convenient future, I want to create any comfortable codes.
-#
-
-#
 # Requirement: Python3
 # 
 # Pre-requirement
@@ -15,7 +7,6 @@
 # 1. Create apps
 #   Refer to: https://kishaku-kangen.blogspot.com/2020/07/slackapilegacy-token-slackchannels.html
 # 2. Execute this program via "python3"
-#
 
 import requests
 import json
@@ -31,21 +22,23 @@ import datetime
 # Bot Token
 bottoken = "{{ Your Bot Token }}"
 # Channel ID you can get from the channel url link
-channelID = "{{ Your Channel ID }}"
+channelID = "{{ Your Channel to get messages }}"
 # Maximum number of messages to get at a time.(If the message updated more then GET_MESSAGE_NUM, you miss some messages.)
-GET_MESSAGE_NUM=10 
+GET_MESSAGE_NUM=10
 # Sleep Time among next slack message getting.
 SLEEP_TIME=10  # (sec)
 # Syslog Tag
 SYSLOG_TAG = "{{ Tag for syslog }}"
 # Output File Directory
-OutputFileDir = "/home/slacker/slackget/logs/"
+OutputFileDir = "{{ Temporary logs output directory }}"
 ## -----------------------------------------------------------------------
 
 # API Reference for conversations.history
 #  https://api.slack.com/methods/conversations.history
 # API URL
 url = "https://slack.com/api/conversations.history"
+# Time Record
+latest_ts_record_file = ".latest_ts_record.log"
 
 header={
     "Authorization": "Bearer {}".format(bottoken)
@@ -80,7 +73,21 @@ def send_to_syslog(queue):
   # loggerOutputTest
   subprocess.call("logger -f " + OutputFile + " -t "+SYSLOG_TAG,shell=True)
 
-latest_ts=0
+def getLatestTsRecord(recordFile):
+  latest_ts=0
+  # No file
+  if not os.path.isfile(recordFile):
+    latest_ts=0
+  else:
+    with open(recordFile) as f:
+      latest_ts=float(f.readlines()[0])
+  return latest_ts
+
+def recordLatestTs(recordFile,ts):
+  with open(recordFile,"w") as fw:
+    fw.write(str(ts))
+
+latest_ts=getLatestTsRecord(latest_ts_record_file)
 msgqueue=[] # 0=>oldest
 while True:
   msgqueue=[]
@@ -91,5 +98,6 @@ while True:
       text=js["messages"][i]["text"]
       msgqueue.append(text)
   latest_ts = float(js["messages"][0]["ts"])
+  recordLatestTs(latest_ts_record_file,latest_ts)
   send_to_syslog(msgqueue)
   time.sleep(SLEEP_TIME)
